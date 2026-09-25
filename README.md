@@ -27,12 +27,5 @@ Full-stack job discovery and CV matching platform.
 | Prompts | `backend/app/prompts/` |
 | Admin API | `/api/admin/*` |
 
-## Security & Protection
-
-This repository is **production-secured**:
-- 🔒 **Secrets Excluded:** `.env` and all private keys are strictly listed in `.gitignore`.
-- 🛡️ **User Data Protected:** Uploaded CV files (`uploads/`) and SQLite databases (`*.db`) are ignored.
-- ⚡ **API Key Safety:** Groq API keys are stored solely in environment variables and never logged or sent to client side.
-
 This tool **does not** submit applications automatically or guarantee employment. Users open the original `source_url` and apply themselves.
 
