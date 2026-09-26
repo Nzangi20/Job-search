@@ -82,22 +82,26 @@ async def init_db() -> None:
         # 1. Create missing tables
         Base.metadata.create_all(sync_conn)
 
-        # 2. Add missing columns to existing tables
+        # 2. Add missing columns and relax legacy NOT NULL columns on existing tables
         inspector = inspect(sync_conn)
         existing_tables = set(inspector.get_table_names())
 
         for table_name, table in Base.metadata.tables.items():
             if table_name in existing_tables:
-                existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
+                db_cols_info = inspector.get_columns(table_name)
+                existing_cols = {c["name"]: c for c in db_cols_info}
+                model_col_names = {col.name for col in table.columns}
+
+                # Add missing columns defined on the model
                 for col in table.columns:
                     if col.name not in existing_cols:
                         try:
                             col_type = col.type.compile(sync_conn.dialect)
                         except Exception:
                             col_type = "VARCHAR(255)"
-                        
+
                         col_type_str = str(col_type)
-                        
+
                         if "postgresql" in sync_conn.dialect.name:
                             alter_sql = f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type_str}'
                         elif "sqlite" in sync_conn.dialect.name:
@@ -110,6 +114,25 @@ async def init_db() -> None:
                             print(f"Added missing column '{col.name}' to table '{table_name}'")
                         except Exception as e:
                             print(f"Notice: could not add missing column {table_name}.{col.name}: {e}")
+
+                # Relax NOT NULL on legacy columns not present in the current model
+                for col_name, col_info in existing_cols.items():
+                    if col_name not in model_col_names:
+                        if not col_info.get("nullable", True) and col_info.get("default") is None:
+                            col_type_str = str(col_info.get("type", "VARCHAR(255)"))
+                            if "postgresql" in sync_conn.dialect.name:
+                                alter_sql = f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP NOT NULL'
+                            elif "sqlite" not in sync_conn.dialect.name:
+                                alter_sql = f'ALTER TABLE `{table_name}` MODIFY COLUMN `{col_name}` {col_type_str} NULL'
+                            else:
+                                alter_sql = None
+
+                            if alter_sql:
+                                try:
+                                    sync_conn.execute(text(alter_sql))
+                                    print(f"Relaxed NOT NULL constraint on legacy column '{table_name}.{col_name}'")
+                                except Exception as e:
+                                    print(f"Notice: could not alter legacy column {table_name}.{col_name}: {e}")
 
     async with engine.begin() as conn:
         await conn.run_sync(sync_tables)
