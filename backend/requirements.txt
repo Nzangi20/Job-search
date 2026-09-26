@@ -17,3 +17,4 @@ greenlet==3.5.6
 rapidfuzz==3.14.6
 feedparser==6.0.14
 beautifulsoup4==4.15.0
+asyncpg==0.29.0
