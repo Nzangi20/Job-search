@@ -63,8 +63,8 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router, prefix="/api")
     app.include_router(admin.router, prefix="/api")
 
-    @app.get("/")
-    @app.get("/api/health")
+    @app.api_route("/", methods=["GET", "HEAD"])
+    @app.api_route("/api/health", methods=["GET", "HEAD"])
     async def health():
         return {"status": "ok", "app": settings.app_name}
 
