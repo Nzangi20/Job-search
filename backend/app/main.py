@@ -35,7 +35,12 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
-    raw_origins = [settings.frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"]
+    raw_origins = [
+        settings.frontend_url,
+        "https://job-search-eight-roan.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
     allowed_origins = []
     for o in raw_origins:
         if not o:
