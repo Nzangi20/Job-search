@@ -76,6 +76,41 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     from app import models  # noqa: F401
+    from sqlalchemy import inspect, text
+
+    def sync_tables(sync_conn):
+        # 1. Create missing tables
+        Base.metadata.create_all(sync_conn)
+
+        # 2. Add missing columns to existing tables
+        inspector = inspect(sync_conn)
+        existing_tables = set(inspector.get_table_names())
+
+        for table_name, table in Base.metadata.tables.items():
+            if table_name in existing_tables:
+                existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
+                for col in table.columns:
+                    if col.name not in existing_cols:
+                        try:
+                            col_type = col.type.compile(sync_conn.dialect)
+                        except Exception:
+                            col_type = "VARCHAR(255)"
+                        
+                        col_type_str = str(col_type)
+                        
+                        if "postgresql" in sync_conn.dialect.name:
+                            alter_sql = f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type_str}'
+                        elif "sqlite" in sync_conn.dialect.name:
+                            alter_sql = f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type_str}'
+                        else:
+                            alter_sql = f'ALTER TABLE `{table_name}` ADD COLUMN `{col.name}` {col_type_str}'
+
+                        try:
+                            sync_conn.execute(text(alter_sql))
+                            print(f"Added missing column '{col.name}' to table '{table_name}'")
+                        except Exception as e:
+                            print(f"Notice: could not add missing column {table_name}.{col.name}: {e}")
 
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(sync_tables)
+

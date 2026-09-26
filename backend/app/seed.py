@@ -157,10 +157,16 @@ async def seed_defaults() -> None:
             if ds.name not in existing_sources:
                 db.add(ds)
 
-        admin = await db.execute(select(User).where(User.email == "admin@aijobhunter.local"))
-        if not admin.scalar_one_or_none():
+        admin_res = await db.execute(select(User).where(User.email == "admin@aijobhunter.local"))
+        admin_user = admin_res.scalar_one_or_none()
+        if not admin_user:
             from app.services.auth import create_user
 
             user = await create_user(db, "admin@aijobhunter.local", "AdminPass123!", "Admin")
             user.role = UserRole.ADMIN
+        elif not admin_user.hashed_password:
+            from app.services.auth import get_password_hash
+
+            admin_user.hashed_password = get_password_hash("AdminPass123!")
+            admin_user.role = UserRole.ADMIN
         await db.commit()
