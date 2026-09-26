@@ -76,15 +76,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     from app import models  # noqa: F401
-    from sqlalchemy import text
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-    async with AsyncSessionLocal() as session:
-        try:
-            await session.execute(text("SELECT id, email, hashed_password FROM users LIMIT 1"))
-        except Exception:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.drop_all)
-                await conn.run_sync(Base.metadata.create_all)
